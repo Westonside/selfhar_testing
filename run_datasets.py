@@ -112,6 +112,20 @@ DATASET_METADATA = {
         'has_null_class': False,
         'sampling_rate': 150.0,
         'unit': 1,
+    },
+'wisdm': {
+        'name': 'wisdm',
+        'dataset_home_page': 'TODO',
+        'source_url': 'TODO',
+        'file_name': 'Activity recognition exp.zip',
+
+        'default_folder_path': 'Activity recognition exp',
+        'save_file_name': 'hhar_processed.pkl',
+        'label_list': ['sit', 'stand', 'walk', 'stairsup', 'stairsdown', 'bike'],
+        'label_list_full_name': ['sitting', 'standing', 'walking', 'walking upstairs', 'walking downstairs', 'biking'],
+        'has_null_class': False,
+        'sampling_rate': 20,
+        'unit': 1,
     }
 }
 

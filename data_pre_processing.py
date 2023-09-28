@@ -53,24 +53,38 @@ def get_mode(np_array):
     """
     Get the mode (majority/most frequent value) from a 1D array
     """
-    return scipy.stats.mode(np_array)[0]
-
+    return scipy.stats.mode(np_array)[0] # this gets the most occuring value in a 1D 400 entry label array
+    # values, counts = np.unique(np_array, return_counts=True)
+    # return values[counts.argmax()]
 def sliding_window_np(X, window_size, shift, stride, offset=0, flatten=None):
     """
     Create sliding windows from an ndarray
+    These sliding windows do increase the dimensionality
+
+    Good example: you take temperate readings every day for 30 days there are 24 readings a day (24 hours)
+    if your window is a day then you would have 30 windows, taking your dataset from
+    Before windowing your data was 1D with 24 datapoints per window after your dasta was 2D 2(time,window)
+    #for the case of the 1d label array it will return a 1D nparray
     Parameters:
     
         X (numpy-array)
             The numpy array to be windowed
+            This array will have readings in the format:
+            [[r1,r2,r3], [r4,r5,r6],...]
+            the windows will get elements
+            [0-400],[200-600]
+            making the output shape of the format
+            [[[r1,r2,r3], [r4,r5,r6], - 400], ...]]]
         
         shift (int)
             number of timestamps to shift for each window
-            (200 here refers to 50% overlap, no overlap if =400)
+            (200 here refers to 50% overlap, no overlap if =400) if you have a shift of 200 and the window size is 400 you get [0-400], [200-600]
+            50% overlap
         stride (int)
             stride of the window (dilation)
         offset (int)
             starting index of the first window
-        
+
         flatten (function (array) -> (value or array) )
             the function to be applied to a window after it is extracted
             can be used with get_mode (see above) for extracting the label by majority voting
@@ -80,17 +94,31 @@ def sliding_window_np(X, window_size, shift, stride, offset=0, flatten=None):
             shape[0] is the number of windows
     """
 
-    overall_window_size = (window_size - 1) * stride + 1
-    num_windows = (X.shape[0] - offset - (overall_window_size)) // shift + 1
-    windows = []
-    for i in range(num_windows):
-        start_index = i * shift + offset
-        this_window = X[start_index : start_index + overall_window_size : stride]
-        if flatten is not None:
-            this_window = flatten(this_window)
-        windows.append(this_window)
-    return np.array(windows)
+    overall_window_size = (window_size - 1) * stride + 1 #get the total window size which will combine the window size and  stride
+    num_windows = (X.shape[0] - offset - (overall_window_size)) // shift + 1 #get the number of windows based off the number of vectors in the first dimension ex: (1781, 3) would return 1781 then remove the offset  and the window size and divide by shift this tells how mnay windows there will be for this user
+    windows = [] # array to hold the windows
+    for i in range(num_windows): # for the total number of windows
+        start_index = i * shift + offset # get the starting index which uses i, the shift and the offset
+        this_window = X[start_index : start_index + overall_window_size : stride] # stride in this case is how much it will jump by in default case it just jumps by 1 this will get elements [0:400], [200: 600]
+        if flatten is not None: # in the base case it does not flatten and has dimensions (400,3), meaning 400 entries with 3 columns each flattening is not used for user data
+            this_window = flatten(this_window) #call the flatten function on 1D label array and this_window will be one value which was the most occuring value in the array and this will act as the main label for the window
+        windows.append(this_window) # add the new window
+    return np.array(windows) # this goes [0-400], [200-600], returning an ndarray of shape (7,400,3) 7 windows len 400 with 3 cols
 
+#This is where the preprocessing starts windowing allows better handling of larger data andhandle sequences. This can help find
+#information that spans multiple windows
+# For the example of stock data you can use a window of the past week's data to forcast the next day's price
+# to predict you would do days[0-7] the next window would be days[1-8] and you would keep going
+"""
+The user dataset is formatted as an array of tuples that holds a sequences of readings and then it will hold the label for each of the sequences
+[(array([[ 0.525208,  0.584137, -0.381042],
+       [ 0.373001,  0.577896, -0.201477],
+       [ 0.430847,  0.844421,  0.284988],
+       ...,
+       [ 0.732651,  0.480606,  0.309097],
+       [ 0.8004  ,  0.495239,  0.24295 ],
+       [ 1.051361,  0.53241 ,  0.152451]]), array(['dws', 'dws', 'dws', ..., 'dws', 'dws', 'dws'], dtype='<U3')), 
+"""
 def get_windows_dataset_from_user_list_format(user_datasets, window_size=400, shift=200, stride=1, verbose=0):
     """
     Create windows dataset in 'user-list' format using sliding windows
@@ -116,31 +144,41 @@ def get_windows_dataset_from_user_list_format(user_datasets, window_size=400, sh
             windowed_sensor_values have shape (num_window, window_size, channels)
             windowed_activity_labels have shape (num_window)
             Labels are decided by majority vote
-    """
-    
+    """                                                                             #0        #1            #0      #1 here the label will correspond like below
+    # this will get the sequences that correspond with the user for each user ex: ([[1,3,4], [2,2,1],...], ['dws',''dws')
     user_dataset_windowed = {}
 
-    for user_id in user_datasets:
-        if verbose > 0:
+    """
+        what this does is it will take a user (based off their id that corresponds to their index)
+        and then create windowed preprocessing format
+        You will go through the users' data where there will be a list of many sequences with corresponding labels
+        you will window each of these nested sequence (around 15 sequences) and flatten their labels 
+    """
+    for user_id in user_datasets: # go through all user id
+        if verbose > 0: # if verbose print
             print(f"Processing {user_id}")
         x = []
         y = []
 
         # Loop through each trail of each user
         for v,l in user_datasets[user_id]:
-            v_windowed = sliding_window_np(v, window_size, shift, stride)
+            v_windowed = sliding_window_np(v, window_size, shift, stride) #turn the sensor data into windows (adds dimension)[[[2 2 2] [2 2 2]]] becomes [[2 2 2] [2 2 2]] the shape will be (7,400,3) 7 windows with 400 entries of arrays of size 3
             
             # flatten the window by majority vote (1 value for each window)
-            l_flattened = sliding_window_np(l, window_size, shift, stride, flatten=get_mode)
-            if len(v_windowed) > 0:
-                x.append(v_windowed)
-                y.append(l_flattened)
-            if verbose > 0:
-                print(f"Data: {v_windowed.shape}, Labels: {l_flattened.shape}")
+            l_flattened = sliding_window_np(l, window_size, shift, stride, flatten=get_mode) #this will flatten the label array to have one label for each window will be 1D
+            if len(v_windowed) > 0: #if there were entries then:
+                x.append(v_windowed) #add the windowed sensor data
+                y.append(l_flattened) #add the flattened labels that correspond with the windowed data
+            if verbose > 0: # if verbose printing
+                print(f"Data: {v_windowed.shape}, Labels: {l_flattened.shape}") #print the shape
 
-        # combine all trials
-        user_dataset_windowed[user_id] = (np.concatenate(x), np.concatenate(y).squeeze())
-    return user_dataset_windowed
+        # combine all trials of that user where this is a list of activities that are windowed this this will contain 15 entries in a list of the windoweded sequence data 15 X (windows x 400 x 3) this will result in an array of form: (15 x window) x 400 x 3 so  join the array on the first dimension
+        user_dataset_windowed[user_id] = (np.concatenate(x), np.concatenate(y).squeeze()) # join the arrays along axis = 0 and squeeze remove entries of length one from the axes so
+        # the concat will join all the windoweded sequences into one continuous grouping
+        # the concat will join the arrays on the first dimension and will the joined data into a dict at their  corresponding position
+        #squeeze will ([[1], [2], [3]]) -> [1 2 3] join items of size one collapses the dimensions allowingh for the labels to be in a similar position to the sequences
+
+    return user_dataset_windowed # return all the windowed data  for all users
 
 def combine_windowed_dataset(user_datasets_windowed, train_users, test_users=None, verbose=0):
     """
@@ -164,42 +202,51 @@ def combine_windowed_dataset(user_datasets_windowed, train_users, test_users=Non
                 the resulting training/test labels as a single (1D) numpy array
     """
     
-    train_x = []
-    train_y = []
-    test_x = []
-    test_y = []
-    for user_id in user_datasets_windowed:
+    train_x = [] # training set
+    train_y = [] # training labels
+    test_x = [] # testing set
+    test_y = [] # testing labels
+    for user_id in user_datasets_windowed: #go through the windowed dataset by user
         
-        v,l = user_datasets_windowed[user_id]
-        if user_id in train_users:
+        v,l = user_datasets_windowed[user_id] # get the windowdwd data for the user
+        if user_id in train_users: # if the user is in the training set
             if verbose > 0:
-                print(f"{user_id} Train")
-            train_x.append(v)
-            train_y.append(l)
-        elif test_users is None or user_id in test_users:
+                print(f"{user_id} Train") #print train if verbose
+            train_x.append(v) # asdd that value to the training set
+            train_y.append(l) # add the label to the training set
+        elif test_users is None or user_id in test_users:  #They are in the testing set
             if verbose > 0:
                 print(f"{user_id} Test")
-            test_x.append(v)
-            test_y.append(l)
-    
+            test_x.append(v) #put the user in the testing set
+            test_y.append(l) #put their labels in the testing set
+    # Above will check the test users or train and will divide up the inputs in to testing and training labels and window sequences
 
-    if len(train_x) == 0:
+    if len(train_x) == 0: #if there is no training data j
         train_x = np.array([])
         train_y = np.array([])
     else:
-        train_x = np.concatenate(train_x)
-        train_y = np.concatenate(train_y).squeeze()
+        #train_x = [array([1, 2, 3]), array([4, 5, 6]), array([7, 8, 9])]
+        # array([1, 2, 3, 4, 5, 6, 7, 8, 9]) to this using concatenate
+
+        #squeeze wiould turn train_y = [array([1, 2]), array([3, 4]), array([5, 6])]
+        # into array([1, 2],
+        #       [3, 4],
+        #       [5, 6])
+        train_x = np.concatenate(train_x) # if train_x is a list of arrays then concatenate will combine them into a singale array along the default axis so this will be all user sequences in a long series
+        # the above results int the form Array( [[[1,2,3], -> [[[1,2,3] ,[2,3,4], ...
+        # It is important to note that they loop over the user and ensure values are added into the training set in order so that user sequences stay in the correct order
+        train_y = np.concatenate(train_y).squeeze() # join all the labels together in the same fashion and the squeeze will get the format to be a 1d array
     
-    if len(test_x) == 0:
-        test_x = np.array([])
-        test_y = np.array([])
+    if len(test_x) == 0: # if the testing is empty
+        test_x = np.array([]) # add empty arraey
+        test_y = np.array([]) # add empty lables
     else:
-        test_x = np.concatenate(test_x)
-        test_y = np.concatenate(test_y).squeeze()
+        test_x = np.concatenate(test_x) # otherwise do the same as you did to the training set
+        test_y = np.concatenate(test_y).squeeze() # do the same to the labels
 
-    return train_x, train_y, test_x, test_y
+    return train_x, train_y, test_x, test_y # return the sets with their labels
 
-def get_mean_std_from_user_list_format(user_datasets, train_users):
+def  get_mean_std_from_user_list_format(user_datasets, train_users):
     """
     Obtain and means and standard deviations from a 'user-list' dataset (channel-wise)
     from training users only
@@ -216,13 +263,13 @@ def get_mean_std_from_user_list_format(user_datasets, train_users):
     """
     
     mean_std_data = []
-    for u in train_users:
-        for data, _ in user_datasets[u]:
-            mean_std_data.append(data)
-    mean_std_data_combined = np.concatenate(mean_std_data)
-    means = np.mean(mean_std_data_combined, axis=0)
-    stds = np.std(mean_std_data_combined, axis=0)
-    return (means, stds)
+    for u in train_users: #get the user id in the training users
+        for data, _ in user_datasets[u]: #get the data corresponding to the user
+            mean_std_data.append(data) #Add the data at that user sequence, this will hold all the sequences for the user add it to the mean std data
+    mean_std_data_combined = np.concatenate(mean_std_data) # concatenate all the user sequence data and combine into a large array with arrays of size 3 (1126576,3)
+    means = np.mean(mean_std_data_combined, axis=0) # take the mean of all the user data
+    stds = np.std(mean_std_data_combined, axis=0) # take the standard deviation of all the data
+    return (means, stds) # return the mean and std
 
 def normalise(data, mean, std):
     """
@@ -322,27 +369,31 @@ def pre_process_dataset_composite(user_datasets, label_map, output_shape, train_
             if validation_split_proportion is None, np_val is None
     """
 
-    # Step 1
-    user_datasets_windowed = get_windows_dataset_from_user_list_format(user_datasets, window_size=window_size, shift=shift)
+    # Step 1: This is where the data is partitioned
+    #windowing helps capture local patterns if you have sequential data. This is where you divide the data into windows
+    user_datasets_windowed = get_windows_dataset_from_user_list_format(user_datasets, window_size=window_size, shift=shift) #
 
-    # Step 2
+    # Step 2: This will take the windowded data and generate the testing and training sets using the tuple of sequence to label
     train_x, train_y, test_x, test_y = combine_windowed_dataset(user_datasets_windowed, train_users, test_users)
 
-    # Step 3
+    # Step 3 this is where the normalization occurs
     if normalise_dataset:
-        means, stds = get_mean_std_from_user_list_format(user_datasets, train_users)
-        train_x = normalise(train_x, means, stds)
-        if len(test_users) > 0:
-            test_x = normalise(test_x, means, stds)
+        #NOTE that they are getting the mean and std from the user dataset
+        means, stds = get_mean_std_from_user_list_format(user_datasets, train_users) #take the mean and standard deviation of the data sets only for the training
+        train_x = normalise(train_x, means, stds) # apply z normalization to the data set
+        if len(test_users) > 0: # if there are testing useres
+            test_x = normalise(test_x, means, stds) # appy z score normalization to the test set
         else:
-            test_x = np.empty((0,0))
+            test_x = np.empty((0,0)) # if no testing users just put in empty tuple
 
-    # Step 4
-    train_y_mapped = apply_label_map(train_y, label_map)
-    test_y_mapped = apply_label_map(test_y, label_map)
+    # Step 4: This takes the training labels and uses a label map that associates an activity with a numeric id and converts the training labels to integer ids
+    # ['dws', 'dws',..], {'dw': 1, 'sit' : 2} -> [1,1,..]
+    train_y_mapped = apply_label_map(train_y, label_map) # create mapping from integer representation to string representation
+    test_y_mapped = apply_label_map(test_y, label_map) # map the test set too
 
-    train_x, train_y_mapped = filter_none_label(train_x, train_y_mapped)
-    test_x, test_y_mapped = filter_none_label(test_x, test_y_mapped)
+    # Remvoe the none label
+    train_x, train_y_mapped = filter_none_label(train_x, train_y_mapped) # rove any none values
+    test_x, test_y_mapped = filter_none_label(test_x, test_y_mapped) # remove the none label
 
     if verbose > 0:
         print("Test")
@@ -355,40 +406,40 @@ def pre_process_dataset_composite(user_datasets, label_map, output_shape, train_
         print(np.unique(train_y_mapped, return_counts=True))
         print("-----------------")
 
-    # Step 5
-    train_y_one_hot = tf.keras.utils.to_categorical(train_y_mapped, num_classes=output_shape)
-    test_y_one_hot = tf.keras.utils.to_categorical(test_y_mapped, num_classes=output_shape)
+    # Step 5: Generate a one hot encoding for each of the training and the testing data, one hot will use a [0,0,0,1,0] to indicate what category it pertains to out of all the total categories
+    train_y_one_hot = tf.keras.utils.to_categorical(train_y_mapped, num_classes=output_shape) # get one hot encoding forr the training
+    test_y_one_hot = tf.keras.utils.to_categorical(test_y_mapped, num_classes=output_shape) # get the one hot encoding for the testing
 
-    r = np.random.randint(len(train_y_mapped))
-    assert train_y_one_hot[r].argmax() == train_y_mapped[r]
-    if len(test_users) > 0:
+    r = np.random.randint(len(train_y_mapped))  # check if mappings done correctly
+    assert train_y_one_hot[r].argmax() == train_y_mapped[r] # makes sure the one hot encoding occurred correctly
+    if len(test_users) > 0: # if you have testing users j
         r = np.random.randint(len(test_y_mapped))
-        assert test_y_one_hot[r].argmax() == test_y_mapped[r]
+        assert test_y_one_hot[r].argmax() == test_y_mapped[r] #check your mapping
 
-    # Step 6
-    if validation_split_proportion is not None and validation_split_proportion > 0:
+    # Step 6: If there is a validation set then it will split the training set into the validation set
+    if validation_split_proportion is not None and validation_split_proportion > 0: # create a validation set using the training set
         train_x_split, val_x_split, train_y_split, val_y_split = sklearn.model_selection.train_test_split(train_x, train_y_one_hot, test_size=validation_split_proportion, random_state=42)
     else:
-        train_x_split = train_x
-        train_y_split = train_y_one_hot
-        val_x_split = None
+        train_x_split = train_x #if there is not a validation set  just have training and testing
+        train_y_split = train_y_one_hot # set to be the one hot encoding
+        val_x_split = None # set validation to none
         val_y_split = None
         
 
-    if verbose > 0:
+    if verbose > 0: # printing of shapes
         print("Training data shape:", train_x_split.shape)
         print("Validation data shape:", val_x_split.shape if val_x_split is not None else "None")
         print("Testing data shape:", test_x.shape)
 
-    np_train = (train_x_split, train_y_split)
-    np_val = (val_x_split, val_y_split) if val_x_split is not None else None
-    np_test = (test_x, test_y_one_hot)
+    np_train = (train_x_split, train_y_split) #training set  tuple
+    np_val = (val_x_split, val_y_split) if val_x_split is not None else None # validation tuple
+    np_test = (test_x, test_y_one_hot) #testing tuple
 
     # original_np_train = np_train
     # original_np_val = np_val
     # original_np_test = np_test
 
-    return (np_train, np_val, np_test)
+    return (np_train, np_val, np_test) #return the sets
 
 def pre_process_dataset_composite_in_user_format(user_datasets, label_map, output_shape, train_users, window_size, shift, normalise_dataset=True, verbose=0):
     """
@@ -435,7 +486,7 @@ def pre_process_dataset_composite_in_user_format(user_datasets, label_map, outpu
     if normalise_dataset:
         means, stds = get_mean_std_from_user_list_format(user_datasets, train_users)
 
-    # Step 1
+    # Step 1 this will  window the data for each of the users and then join these windows into one continuous sequence of vectors
     user_datasets_windowed = get_windows_dataset_from_user_list_format(user_datasets, window_size=window_size, shift=shift)
 
     

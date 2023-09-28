@@ -4,6 +4,8 @@ import os
 __author__ = "C. I. Tang"
 __copyright__ = "Copyright (C) 2021 C. I. Tang"
 
+import self_har_training_visualization
+
 """
 Complementing the work of Tang et al.: SelfHAR: Improving Human Activity Recognition through Self-training with Unlabeled Data
 @article{10.1145/3448112,
@@ -58,13 +60,14 @@ def composite_train_model(
     tag="har", 
     use_tensor_board_logging=True,
     steps_per_epoch=None,
-    verbose=1
+    verbose=1,
+    single_train=False
 ):
-    
-    best_model_file_name = os.path.join(working_directory, "models", f"{tag}_best.hdf5")
-    last_model_file_name = os.path.join(working_directory, "models", f"{tag}_last.hdf5")
+    # This function will be called for the teacher model and when after you have frozen layers in the student model to fine tune
+    best_model_file_name = os.path.join(working_directory, "models", f"{tag}_best.hdf5") #write out the path for the best model
+    last_model_file_name = os.path.join(working_directory, "models", f"{tag}_last.hdf5") #write the file name for the last model trained
     best_model_callback = tf.keras.callbacks.ModelCheckpoint(
-        best_model_file_name,
+        best_model_file_name, #create a check point for the model by saving the file, saves the best model
         monitor='val_loss',
         mode='min',
         save_best_only=True,
@@ -72,17 +75,17 @@ def composite_train_model(
         verbose=verbose
     )
 
-    local_callbacks = [best_model_callback]
+    local_callbacks = [best_model_callback] #store the callback
 
-    if use_tensor_board_logging:
-        logdir = os.path.join(working_directory, "logs", tag)
-        tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir)
-        local_callbacks.append(tensorboard_callback)
+    if use_tensor_board_logging: #if tensor board
+        logdir = os.path.join(working_directory, "logs", tag) #the logging directory
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir) # the callback for the tensor board
+        local_callbacks.append(tensorboard_callback) #add the callback to the tenasorboard calback to log if tensorboard logging is allowed
 
     training_history = full_model.fit(
         x=training_set[0],
         y=training_set[1],
-        validation_data=(validation_set[0], validation_set[1]),
+        validation_data=(validation_set[0], validation_set[1]), # this will train the model on the teacher labelled data
 
         batch_size=batch_size,
         shuffle=True,
@@ -91,12 +94,12 @@ def composite_train_model(
 
         steps_per_epoch=steps_per_epoch,
         verbose=verbose
-    )
-
+    ) #this is where the traiing will occur
+    self_har_training_visualization.plot_training_history(training_history) #plot the training history
     
-    full_model.save(last_model_file_name)
+    full_model.save(last_model_file_name) # at the end save the model
     
-    return best_model_file_name, last_model_file_name
+    return best_model_file_name, last_model_file_name # return the best model file anme and the last trained model filename
 
 
 
