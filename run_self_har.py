@@ -240,6 +240,7 @@ if __name__ == '__main__':
     if use_tensor_board_logging: # check if tensorboard logging is enabled
         logs_directory = os.path.join(working_directory, LOGS_SUB_DIRECTORY) # combine the current wd with the logs sub directory name
         if not os.path.exists(logs_directory): # check if the logs directory already exists
+            print(os.getcwd())
             os.mkdir(logs_directory) # create the directory if it does not exist
     models_directory = os.path.join(working_directory, MODELS_SUB_DIRECTORY) # creating relative path to wehre the models are stored
     if not os.path.exists(models_directory): # if there is not a path to the models directory
