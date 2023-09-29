@@ -82,6 +82,8 @@ def composite_train_model(
         tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir) # the callback for the tensor board
         local_callbacks.append(tensorboard_callback) #add the callback to the tenasorboard calback to log if tensorboard logging is allowed
 
+    if single_train: #if single train
+        early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10) #early stopping
     training_history = full_model.fit(
         x=training_set[0],
         y=training_set[1],
@@ -95,7 +97,8 @@ def composite_train_model(
         steps_per_epoch=steps_per_epoch,
         verbose=verbose
     ) #this is where the traiing will occur
-    self_har_training_visualization.plot_training_history(training_history) #plot the training history
+    if single_train:
+        self_har_training_visualization.plot_training_history(training_history) #plot the training history
     
     full_model.save(last_model_file_name) # at the end save the model
     
