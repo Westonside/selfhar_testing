@@ -61,7 +61,8 @@ def composite_train_model(
     use_tensor_board_logging=True,
     steps_per_epoch=None,
     verbose=1,
-    single_train=False
+    single_train=False,
+    name=None
 ):
     # This function will be called for the teacher model and when after you have frozen layers in the student model to fine tune
     best_model_file_name = os.path.join(working_directory, "models", f"{tag}_best.hdf5") #write out the path for the best model
@@ -74,7 +75,7 @@ def composite_train_model(
         save_weights_only=False,
         verbose=verbose
     )
-
+    #the test[1] will have 'noised': ndarraay that is the label for the noised head
     local_callbacks = [best_model_callback] #store the callback
 
     if use_tensor_board_logging: #if tensor board
@@ -82,8 +83,16 @@ def composite_train_model(
         tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir) # the callback for the tensor board
         local_callbacks.append(tensorboard_callback) #add the callback to the tenasorboard calback to log if tensorboard logging is allowed
 
-    if single_train: #if single train
-        early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10) #early stopping
+    if single_train: #if single train add early stopping
+        early_stopping_callback = tf.keras.callbacks.EarlyStopping(
+            monitor='val_loss',
+            mode='min',
+            patience=10, # increase the epochs and  play with the patience
+            verbose=verbose # patience is the number of epochs to wait before stopping
+        )
+
+
+    #each head gets the same input and they will each predict on one of the transformation
     training_history = full_model.fit(
         x=training_set[0],
         y=training_set[1],
@@ -98,7 +107,7 @@ def composite_train_model(
         verbose=verbose
     ) #this is where the traiing will occur
     if single_train:
-        self_har_training_visualization.plot_training_history(training_history) #plot the training history
+        self_har_training_visualization.plot_training_history(training_history, name) #plot the training history
     
     full_model.save(last_model_file_name) # at the end save the model
     

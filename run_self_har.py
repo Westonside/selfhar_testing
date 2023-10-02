@@ -290,7 +290,7 @@ if __name__ == '__main__':
 
 
     # me testing the wisdm
-    wisdm  = 'test_run/processed_datasets/wisdm_processed.pkl'
+    wisdm  = 'test_run/processed_datasets/wisdm_processed_fft.pkl'
     # test = 'test_run/processed_datasets/motionsense_processed.pkl'
     # prepared_datasets['labelled'] = prepare_dataset(args.labelled_dataset_path, window_size, get_fixed_split_users, validation_split_proportion=0.1, verbose=verbose)
     prepared_datasets['labelled'] = prepare_dataset(wisdm, window_size, get_fixed_split_users, validation_split_proportion=0.1, verbose=verbose)
@@ -390,14 +390,30 @@ if __name__ == '__main__':
                 previous_model = tf.keras.models.load_model(previous_config['trained_model_path']) #get the previous model loaded from memory
                 # the core model
                 core_model = self_har_models.extract_core_model(previous_model) # get the core model from the previous model this will return the layer of the model at position [1]
-            
-            transform_model = self_har_models.attach_multitask_transform_head(core_model, output_tasks=transform_funcs_names, optimizer=optimizer)
+            should_show_training = get_config_default_value_if_none(experiment_config,"single_train_eval", set_value=False) # if you want to show the training
+
+            features = [64, 128, 256, 512, 1024]  # the number of features in the output
+            model_holder = []
+            if should_show_training: # if you want to show the training
+                #then create a list of models with the different features being returned
+
+                for feature in features: # for each feature
+                    core = self_har_models.create_1d_conv_core_model(input_shape)
+                    model_holder.append(self_har_models.attach_multitask_transform_head(core, output_tasks=transform_funcs_names, optimizer=optimizer, num_features=feature)) # add the model with the feature to the list
+                #print the summary of all them models
+                for model in model_holder:
+                    model.summary()
+                #now for each of the models train them and find the best one
+            else:
+                transform_model = self_har_models.attach_multitask_transform_head(core_model, output_tasks=transform_funcs_names, optimizer=optimizer)
+                transform_model.summary() # put a summary of the model
+
+
             """
                 Above will add to the core model heads for Multi task learning which allows for the model to better learn the features of the data
                 this will have one categorical HAR head and the rest will be categorical bce 
                 I am unsure why the transformation model is not used in all examples
             """
-            transform_model.summary() # put a summary of the model
             if verbose > 0:
                 print(f"Dataset for transformation discrimination shape: {prepared_datasets['unlabelled_combined'].shape}")
 
@@ -416,8 +432,25 @@ if __name__ == '__main__':
                 return rate
 
             training_schedule_callback = tf.keras.callbacks.LearningRateScheduler(training_rate_schedule) #create a callback of the above that can be used
+            if should_show_training:
+                # go through the models and train each of them
+                for i,  model in enumerate(model_holder):
+                    self_har_trainers.composite_train_model(
+                        full_model=model,
+                        training_set=multitask_train,
+                        validation_set=multitask_val,
+                        working_directory=working_directory,
+                        callbacks=[training_schedule_callback],
+                        epochs=epochs,
+                        batch_size=batch_size,
+                        tag=tag,
+                        use_tensor_board_logging=use_tensor_board_logging,
+                        verbose=verbose,
+                        single_train=should_show_training,
+                        name=f"transform_model_{features[i]}"
+                    )
+                exit(1)
 
-            should_show_training = get_config_default_value_if_none(experiment_config,"single_train_eval", set_value=False) # if you want to show the training
             best_transform_model_file_name, last_transform_pre_train_model_file_name = self_har_trainers.composite_train_model(
                 full_model=transform_model, 
                 training_set=multitask_train, 

@@ -228,7 +228,7 @@ def attach_linear_classification_head(core_model, output_shape, optimizer=tf.ker
     return model
 
 
-def attach_multitask_transform_head(core_model, output_tasks, optimizer, with_har_head=False, har_output_shape=None, num_units_har=1024, model_name="multitask_transform"):
+def attach_multitask_transform_head(core_model, output_tasks, optimizer, with_har_head=False, har_output_shape=None, num_units_har=1024, model_name="multitask_transform", num_features=256):
     """
     Note: core_model is also modified after training this model (i.e. the weights are updated)
     """
@@ -244,10 +244,15 @@ def attach_multitask_transform_head(core_model, output_tasks, optimizer, with_ha
     intermediate_x = core_model(inputs) # adding an input layer to the core model that will hold the output of the core model
     outputs = []
     losses = [tf.keras.losses.BinaryCrossentropy() for _ in output_tasks] # create an array of bCE loss for all output tasks related to the teransformation binary classificaiton task and then you will add an additional loss for the har classification loss
+
+
+
     #this will add for the HAR head, the NoisedTask Head
     for task in output_tasks: #create dense layers for each of the output tasks which are the transformation bin classification tasks
-        x = tf.keras.layers.Dense(256, activation='relu')(intermediate_x) # add a dense layer to the intermediate: NOTE THIS IS WHERE THE MUILTI HEAD CONFIG STARTS you are adding a bin classification head to the intermediate layer for each transformation
-        pred = tf.keras.layers.Dense(1, activation='sigmoid', name=task)(x) #this function will be the output for the binary classification, sigmoid will between 0 and 1 and it will have one output
+        #TODO look at 256 value 256 will be the features the cnn will generate these  this line tells cnn generate 256 features justify why 256
+        # Look to see if enlarging the 256 will improve the performance of the transformation classification
+        x = tf.keras.layers.Dense(num_features, activation='relu')(intermediate_x) # add a dense layer to the intermediate: NOTE THIS IS WHERE THE MUILTI HEAD CONFIG STARTS you are adding a bin classification head to the intermediate layer for each transformation
+        pred = tf.keras.layers.Dense(1, activation='sigmoid', name=task)(x) #this function will be the output for the binary classification, sigmoid will between 0 and 1 and it will have one output give a name for the predictor so you know which prediction task goes with it
         outputs.append(pred) # add the binary classificaiton task head output the outputs tasks
 
 
@@ -259,6 +264,7 @@ def attach_multitask_transform_head(core_model, output_tasks, optimizer, with_ha
         outputs.append(har_pred) # for each of these tasks append the har prediction layer
         losses.append(tf.keras.losses.CategoricalCrossentropy()) # to the losses add the loss fn for Categorical CE used for the HAR classification task
 
+    #TODO: allow combining another models's outputs and take the weighted average of the outputs
     model = tf.keras.Model(inputs=inputs, outputs=outputs, name=model_name)
 
     model.compile(

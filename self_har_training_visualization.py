@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
 
-def plot_training_history(history):
+def plot_training_history(history, name=None):
 
     # this is a function that will plot the training history and plot the accuracy and loss
     plt.figure(figsize=(20,10)) #set the figure size
@@ -32,7 +32,10 @@ def plot_training_history(history):
     plt.legend()
     plt.title("Loss")
     # save the figure
-    plt.savefig("loss.png")
+    plt.savefig(f"./plots/features/{name}_features.png")
+    # save the history to the same folder
+    with open(f"./plots/features/{name}_features.txt", "w") as f:
+        f.write(str(history.history))
     plt.show()
 
 
