@@ -603,8 +603,8 @@ if __name__ == '__main__':
                 print("Unlabelled Datasete Shape", prepared_datasets['unlabelled_combined'].shape)
 
             if experiment_type == 'feature_extract': #if you are extracting features
-                core = self_har_models.extract_core_model(teacher_model) #extract the core model from the teacher model
-                teacher_model = tf.keras.Model(inputs=teacher_model.input, outputs=core.output) #get the output features (layer before the classification head)
+                core_output = teacher_model.get_layer('base_model').output
+                teacher_model = tf.keras.Model(inputs=teacher_model.input, outputs=core_output) #get the output features (layer before the classification head)
             unlabelled_pred_prob = teacher_model.predict(prepared_datasets['unlabelled_combined'], batch_size=batch_size) # teacher model will predict on the unlabelled data generating its own labels for what it thinks NOTE: this will be a probabiotiy distribution
             print(unlabelled_pred_prob, unlabelled_pred_prob.shape)
             np_self_labelled = self_har_utilities.pick_top_samples_per_class_np( #this will pick the predictions with the highest confidence from the teacher for each class
