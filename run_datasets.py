@@ -115,8 +115,8 @@ DATASET_METADATA = {
     },
 'wisdm': {
         'name': 'wisdm',
-        'dataset_home_page': 'TODO',
-        'source_url': 'TODO',
+        'dataset_home_page': 'https://archive.ics.uci.edu/dataset/507/wisdm+smartphone+and+smartwatch+activity+and+biometrics+dataset',
+        'source_url': 'https://archive.ics.uci.edu/static/public/507/wisdm+smartphone+and+smartwatch+activity+and+biometrics+dataset.zip',
         'file_name': 'Activity recognition exp.zip',
 
         'default_folder_path': 'Activity recognition exp',
