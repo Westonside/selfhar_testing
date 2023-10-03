@@ -463,7 +463,7 @@ if __name__ == '__main__':
             if should_show_training:
                 # go through the models and train each of them
                 for configuration in model_holder:
-                    for i,model in enumerate(configuration):
+                    for i,model in enumerate(model_holder[configuration]):
                         # now you will train the models in this configuration
                         self_har_trainers.composite_train_model(
                             full_model=model,
