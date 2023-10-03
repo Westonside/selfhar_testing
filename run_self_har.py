@@ -83,17 +83,17 @@ def get_parser():
 
     parser = argparse.ArgumentParser(
         description='SelfHAR Training')
-        
+
     parser.add_argument('--working_directory', default='run',
                         help='directory containing datasets, trained models and training logs')
     parser.add_argument('--config', default='sample_configs/self_har.json',
                         help='')
-    
-    parser.add_argument('--labelled_dataset_path', default='run/processed_datasets/motionsense_processed.pkl', type=str, 
+
+    parser.add_argument('--labelled_dataset_path', default='run/processed_datasets/motionsense_processed.pkl', type=str,
                         help='name of the labelled dataset for training and fine-tuning')
-    parser.add_argument('--unlabelled_dataset_path', default='run/processed_datasets/hhar_processed.pkl', type=str, 
+    parser.add_argument('--unlabelled_dataset_path', default='run/processed_datasets/hhar_processed.pkl', type=str,
                         help='name of the unlabelled dataset to self-training and self-supervised training, ignored if only supervised training is performed.')
-    
+
     parser.add_argument('--window_size', default=400, type=int,
                         help='the size of the sliding window')
     parser.add_argument('--max_unlabelled_windows', default=40000, type=int,
@@ -135,14 +135,14 @@ def prepare_dataset(dataset_path, window_size, get_train_test_users, validation_
     2) The windowed Data is combined   
     """
     np_train, np_val, np_test = data_pre_processing.pre_process_dataset_composite(
-        user_datasets=user_datasets, 
-        label_map=label_map, 
-        output_shape=output_shape, 
-        train_users=train_users, 
-        test_users=test_users, 
-        window_size=window_size, 
+        user_datasets=user_datasets,
+        label_map=label_map,
+        output_shape=output_shape,
+        train_users=train_users,
+        test_users=test_users,
+        window_size=window_size,
         shift=window_size//2, #divide the window into two and divide down this will be how much the window moves each time so 200 in the case of 400 meaning 50% intersect
-        normalise_dataset=True, 
+        normalise_dataset=True,
         validation_split_proportion=validation_split_proportion, # The validation set is used to determine how good our training set is performing it is .1 by default
         verbose=verbose
     )
@@ -157,41 +157,49 @@ def prepare_dataset(dataset_path, window_size, get_train_test_users, validation_
         'output_shape': output_shape,
     }
 
-def generate_unlabelled_datasets_variations(unlabelled_data_x, labelled_data_x, labelled_repeat=1, verbose=1):
+def generate_unlabelled_datasets_variations(unlabelled_data_x, labelled_data_x, labelled_repeat=1, verbose=1, labels=None):
     if verbose > 0:
         print("Unlabeled data shape: ", unlabelled_data_x.shape)
-    
-    labelled_data_repeat = np.repeat(labelled_data_x, labelled_repeat, axis=0)
+
+    labelled_data_repeat = np.repeat(labelled_data_x, labelled_repeat, axis=0) #for now it is safe to assume that labelled repeat is 1
     np_unlabelled_combined = np.concatenate([unlabelled_data_x, labelled_data_repeat])
     if verbose > 0:
         print(f"Unlabelled Combined shape: {np_unlabelled_combined.shape}")
     gc.collect()
 
-    return {
+    res =   {
         'labelled_x_repeat': labelled_data_repeat,
         'unlabelled_combined': np_unlabelled_combined
     }
+    if labels is not None:
+        res['unlabelled_combined_labels'] = labels
+    return res
 
 def load_unlabelled_dataset(prepared_datasets, unlabelled_dataset_path, window_size, labelled_repeat, max_unlabelled_windows=None, verbose=1):
     def get_empty_test_users(har_users):
         return (har_users, [])
-
-    prepared_datasets['unlabelled'] = prepare_dataset(unlabelled_dataset_path, window_size, get_empty_test_users, validation_split_proportion=0, verbose=verbose)['train'][0]
+    # below is me being sneaky and getting the labels for the unlabelled data
+    processed_unlabel = prepare_dataset(unlabelled_dataset_path, window_size, get_empty_test_users, validation_split_proportion=0, verbose=verbose)
+    #NOTE: I am manually adding the labels to the unlabeled data this is not part of the training process
+    unlabeled_labels = processed_unlabel['train'][1]
+    prepared_datasets['unlabelled'] = processed_unlabel['train'][0]
     if max_unlabelled_windows is not None:
+        unlabeled_labels = unlabeled_labels[:max_unlabelled_windows]
         prepared_datasets['unlabelled'] = prepared_datasets['unlabelled'][:max_unlabelled_windows]
     prepared_datasets = {
         **prepared_datasets,
         **generate_unlabelled_datasets_variations( #manually generates unlabelled and combined with the lablled training data
-            prepared_datasets['unlabelled'], 
+            prepared_datasets['unlabelled'],
             prepared_datasets['labelled']['train'][0],
-            labelled_repeat=labelled_repeat
+            labelled_repeat=labelled_repeat,
+            labels=np.concatenate((unlabeled_labels, prepared_datasets['labelled']['train'][1]), axis=0)
     )}
     return prepared_datasets
 
 def get_config_default_value_if_none(experiment_config, entry, set_value=True):
     if entry in experiment_config:
         return experiment_config[entry]
-    
+
     if entry == 'type':
         default_value = 'none'
     elif entry == 'tag':
@@ -220,11 +228,15 @@ def get_config_default_value_if_none(experiment_config, entry, set_value=True):
         default_value = {}
     elif entry == 'eval_har':
         default_value = False
+    elif entry == 'single_train_eval' or entry == 'test_num_features' or entry == 'test_epochs':
+        default_value = False
+    elif entry == 'features': #number of output features from cnn
+        default_value = 512
 
     if set_value:
         experiment_config[entry] = default_value
         print(f"INFO: configuration {entry} set to default value: {default_value}.")
-    
+
     return default_value
 
 
@@ -248,19 +260,19 @@ if __name__ == '__main__':
         os.mkdir(models_directory) #create the models directory
     transform_funcs_vectorized = [
         transformations.noise_transform_vectorized,
-        transformations.scaling_transform_vectorized, 
-        transformations.rotation_transform_vectorized, 
-        transformations.negate_transform_vectorized, 
-        transformations.time_flip_transform_vectorized, 
+        transformations.scaling_transform_vectorized,
+        transformations.rotation_transform_vectorized,
+        transformations.negate_transform_vectorized,
+        transformations.time_flip_transform_vectorized,
         transformations.time_segment_permutation_transform_improved,  # this creates an arraye of the transformation functions
-        transformations.time_warp_transform_low_cost, 
+        transformations.time_warp_transform_low_cost,
         transformations.channel_shuffle_transform_vectorized
     ]
     transform_funcs_names = ['noised', 'scaled', 'rotated', 'negated', 'time_flipped', 'permuted', 'time_warped', 'channel_shuffled'] # add lables for all the transformation functions
 
     prepared_datasets = {} #create a dictionary for the prepared dataset
     labelled_repeat = 1             # TODO: improve flexibility transformation_multiple
-    
+
 
     """
     Allocates the training and testing users
@@ -371,6 +383,8 @@ if __name__ == '__main__':
                                                       'batch_size')  # get the batch size form the configuration
         optimizer_type = get_config_default_value_if_none(experiment_config,
                                                           'optimizer')  # get the optimizer from the config
+        features = get_config_default_value_if_none(experiment_config, 'features')
+
         if optimizer_type == 'adam':
             optimizer = tf.keras.optimizers.Adam(learning_rate=initial_learning_rate)
         elif optimizer_type == 'sgd':
@@ -405,17 +419,18 @@ if __name__ == '__main__':
                 # the core model
                 core_model = self_har_models.extract_core_model(
                     previous_model)  # get the core model from the previous model this will return the layer of the model at position [1]
+
             should_show_training = get_config_default_value_if_none(experiment_config, "single_train_eval",
                                                                     set_value=False)  # if you want to show the training
 
-            features = [64, 128, 256, 512, 1024]  # the number of features in the output
+            features_list = [64, 128, 256, 512, 1024]  # the number of features in the output
             epoch_list = [20, 30, 35, 40, 50]
             model_holder = {}
             if should_show_training:  # if you want to show the training
                 if get_config_default_value_if_none(experiment_config, 'test_num_features', set_value=False):
                     model_holder['test_num_features'] = self_har_models.test_number_features(input_shape,
                                                                                              transform_funcs_names,
-                                                                                             features,
+                                                                                             features_list,
                                                                                              initial_learning_rate)
                 # then create a list of models with the different features being returned
                 if get_config_default_value_if_none(experiment_config, 'test_epochs', set_value=False):
@@ -425,7 +440,7 @@ if __name__ == '__main__':
             else:
                 transform_model = self_har_models.attach_multitask_transform_head(core_model,
                                                                                   output_tasks=transform_funcs_names,
-                                                                                  optimizer=optimizer)
+                                                                                  optimizer=optimizer, num_features=features)
                 transform_model.summary()  # put a summary of the model
 
             """
@@ -477,22 +492,8 @@ if __name__ == '__main__':
                             use_tensor_board_logging=use_tensor_board_logging,
                             verbose=verbose,
                             single_train=should_show_training,
-                            name=f"transform_model_{features[i]}" if configuration != "test_epochs" else f"transform_model_epochs_{epoch_list[i]}"
+                            name=f"transform_model_{features_list[i]}" if configuration != "test_epochs" else f"transform_model_epochs_{epoch_list[i]}"
                         )
-                    # self_har_trainers.composite_train_model(
-                    #     full_model=model,
-                    #     training_set=multitask_train,
-                    #     validation_set=multitask_val,
-                    #     working_directory=working_directory,
-                    #     callbacks=[training_schedule_callback],
-                    #     epochs=epochs,
-                    #     batch_size=batch_size,
-                    #     tag=tag,
-                    #     use_tensor_board_logging=use_tensor_board_logging,
-                    #     verbose=verbose,
-                    #     single_train=should_show_training,
-                    #     name=f"transform_model_{features[i]}"
-                    # )
                     gc.collect()
 
                 exit(1)
@@ -560,7 +561,7 @@ if __name__ == '__main__':
                     self_har_models.set_freeze_layers(self_har_models.extract_core_model(har_model), num_freeze_layer_index=0)
                 elif experiment_type == 'har_full_fine_tune': #if you are about to fine tune the student mode
                     self_har_models.set_freeze_layers(self_har_models.extract_core_model(har_model), num_freeze_layer_index=5) #this takes the functional layer that comes after the iunput layer and freeze the 5th layer
-            
+
             def training_rate_schedule(epoch): #define the training rate schedule while is setting to the starting rate
                 rate = initial_learning_rate
                 if verbose > 0:
@@ -570,14 +571,14 @@ if __name__ == '__main__':
             #TRAINING START
             # this is where trianing occurs
             best_har_model_file_name, last_har_model_file_name = self_har_trainers.composite_train_model(
-                full_model=har_model, 
+                full_model=har_model,
                 training_set=prepared_datasets['labelled']['train'],
                 validation_set=prepared_datasets['labelled']['val'], #train the model
-                working_directory=working_directory, 
+                working_directory=working_directory,
                 callbacks=[training_schedule_callback], #in the case of the linear train (after the model has been fine tuned, this freezes the layers and creates a linear classifier this serves as a final eval
-                epochs=epochs, 
+                epochs=epochs,
                 batch_size=batch_size,
-                tag=tag, 
+                tag=tag,
                 use_tensor_board_logging=use_tensor_board_logging, #this will train with the base training set
                 verbose=verbose
             )
@@ -585,9 +586,9 @@ if __name__ == '__main__':
             experiment_config['trained_model_path'] = best_har_model_file_name #set the file path for the best configuration model
             experiment_config['trained_model_type'] = 'har_model' #set the experiement config type in the dict
 
-            
-        
-        if experiment_type == 'self_training' or experiment_type == 'self_har': #this will not be run for the teacher model
+
+
+        if experiment_type == 'self_training' or experiment_type == 'self_har' or experiment_type == 'feature_extract': #this will not be run for the teacher model
             if 'unlabelled' not in prepared_datasets: # If you do not have the unlablled dataset prepared
                 prepared_datasets = load_unlabelled_dataset(prepared_datasets, args.unlabelled_dataset_path, window_size, labelled_repeat, max_unlabelled_windows=args.max_unlabelled_windows) # load  the unlabelled data
                 # load in the unlablled data and combine it with the training data without labels add it to the datasets dicts
@@ -600,15 +601,19 @@ if __name__ == '__main__':
                 teacher_model = tf.keras.models.load_model(previous_config['trained_model_path']) # load the previously trained teacher set that was trained on training data
             if verbose > 0: #printing of dataset
                 print("Unlabelled Datasete Shape", prepared_datasets['unlabelled_combined'].shape)
+
+            if experiment_type == 'feature_extract': #if you are extracting features
+                teacher_model = tf.keras.Model(inputs=teacher_model.input, output=teacher_model.layers[-(len(transform_funcs_names)-1)]) #get the output features (layer before the classification head)
             unlabelled_pred_prob = teacher_model.predict(prepared_datasets['unlabelled_combined'], batch_size=batch_size) # teacher model will predict on the unlabelled data generating its own labels for what it thinks NOTE: this will be a probabiotiy distribution
+            print(unlabelled_pred_prob, unlabelled_pred_prob.shape)
             np_self_labelled = self_har_utilities.pick_top_samples_per_class_np( #this will pick the predictions with the highest confidence from the teacher for each class
                 prepared_datasets['unlabelled_combined'],  #the combined unlablled datase
                 unlabelled_pred_prob, #this will be an array of predictions for all the sequences from the the teacher
                 num_samples_per_class=get_config_default_value_if_none(experiment_config, 'self_training_samples_per_class'),
-                minimum_threshold=get_config_default_value_if_none(experiment_config, 'self_training_minimum_confidence'), 
+                minimum_threshold=get_config_default_value_if_none(experiment_config, 'self_training_minimum_confidence'),
                 plurality_only=get_config_default_value_if_none(experiment_config, 'self_training_plurality_only')
             )
-            
+
             #you will create 8 x teacher predictions to correspond with each transformation that will serve as har labels
             multitask_X, multitask_transform_y, multitask_har_y = self_har_utilities.create_individual_transform_dataset(
                 np_self_labelled[0],  # the unlabelled sample data
@@ -625,7 +630,7 @@ if __name__ == '__main__':
                 return rate
             training_schedule_callback = tf.keras.callbacks.LearningRateScheduler(training_rate_schedule) #create a learning rate scheduler
 
-            
+
             if experiment_type == 'self_training':
                 student_pre_train_dataset = np_self_labelled
 
@@ -651,27 +656,26 @@ if __name__ == '__main__':
                 student_pre_train_split_train = (pre_train_split[0], pre_train_split[1]) # get the training data and labels
                 student_pre_train_split_val = (pre_train_split[2], pre_train_split[3]) #create the validation set split
 
-            
+
             best_student_pre_train_file_name, last_student_pre_train_file_name = self_har_trainers.composite_train_model(
                 full_model=student_model,
                 training_set=student_pre_train_split_train,
-                validation_set=student_pre_train_split_val, 
-                working_directory=working_directory, 
+                validation_set=student_pre_train_split_val,
+                working_directory=working_directory,
                 callbacks=[training_schedule_callback], # this will train the student on the teacher labelled data that has been transformed
-                epochs=epochs, 
-                batch_size=batch_size, 
-                tag=tag, 
-                use_tensor_board_logging=use_tensor_board_logging, 
+                epochs=epochs,
+                batch_size=batch_size,
+                tag=tag,
+                use_tensor_board_logging=use_tensor_board_logging,
                 verbose=verbose
             )
-            
+
 
             experiment_config['trained_model_path'] = best_student_pre_train_file_name #put the now trained stuednt model filepath in the dictionary
             if experiment_type == 'self_training':
                 experiment_config['trained_model_type'] = 'har_model'
             else:
                 experiment_config['trained_model_type'] = 'transform_with_har_model' # tset the trained model type to be the model trained on transformation and har
-
 
         if get_config_default_value_if_none(experiment_config, 'eval_har', set_value=False): #the evaluation stage
             if get_config_default_value_if_none(experiment_config, 'trained_model_type') == 'har_model':
@@ -687,7 +691,7 @@ if __name__ == '__main__':
             if verbose > 0:
                 print(eval_results)
             experiment_config['eval_results'] = eval_results #store the evaluation results in the dict
-    
+
     if verbose > 0:
         print("Finshed running all experiments.")
         print("Summary:")
