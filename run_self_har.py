@@ -604,14 +604,19 @@ if __name__ == '__main__':
 
             if experiment_type == 'feature_extract': #if you are extracting features
                 teacher_model = self_har_models.extract_core_model(teacher_model)
-                # teacher_out = self_har_models.extract_core_model(teacher_model).layers[-1]  # get the core model
-                # flattened = tf.keras.layers.Flatten()(teacher_model.output) #flatten the output
-                # teacher_model = tf.keras.Model(inputs=teacher_model.input, outputs=flattened) #create a model that has the same inputs as the teacher model but the outputs are the last layer of the core model
+                unlabelled_pred_prob = teacher_model.predict(prepared_datasets['unlabelled_combined'],
+                                                             batch_size=batch_size)  # teacher model will predict on the unlabelled data generating its own labels for what it thinks NOTE: this will be a probabiotiy distribution
+                # now that you have the features you can save the labels and the features
+                with open(f"features_labels.pkl", 'wb') as f:
+                    pickle.dump({
+                        'features': unlabelled_pred_prob,
+                        'labels': prepared_datasets['unlabelled_combined_labels']
+                    }, f)
+                print(unlabelled_pred_prob, unlabelled_pred_prob.shape, prepared_datasets['unlabelled_combined_labels'], prepared_datasets['unlabelled_combined_labels'].shape)
+                exit(1)
 
             unlabelled_pred_prob = teacher_model.predict(prepared_datasets['unlabelled_combined'], batch_size=batch_size) # teacher model will predict on the unlabelled data generating its own labels for what it thinks NOTE: this will be a probabiotiy distribution
-            print(unlabelled_pred_prob, unlabelled_pred_prob.shape)
-            print('done')
-            exit(1)
+
             np_self_labelled = self_har_utilities.pick_top_samples_per_class_np( #this will pick the predictions with the highest confidence from the teacher for each class
                 prepared_datasets['unlabelled_combined'],  #the combined unlablled datase
                 unlabelled_pred_prob, #this will be an array of predictions for all the sequences from the the teacher
