@@ -12,7 +12,9 @@
       "initial_learning_rate": 0.0003,
       "epochs": 30,
       "batch_size": 300,
-      "single_train_eval": true
+      "single_train_eval": true,
+      "test_num_features": false,
+      "test_epochs": true
     }
   ]
 }
