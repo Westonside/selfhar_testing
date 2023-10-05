@@ -172,7 +172,7 @@ def generate_unlabelled_datasets_variations(unlabelled_data_x, labelled_data_x, 
         'unlabelled_combined': np_unlabelled_combined
     }
     if labels is not None:
-        res['unlabelled_combined_labels'] = labels
+        res['unlabelled_combined_labels'] = labels.argmax(axis=1) # get the numerical values
     return res
 
 def load_unlabelled_dataset(prepared_datasets, unlabelled_dataset_path, window_size, labelled_repeat, max_unlabelled_windows=None, verbose=1):
@@ -194,6 +194,7 @@ def load_unlabelled_dataset(prepared_datasets, unlabelled_dataset_path, window_s
             labelled_repeat=labelled_repeat,
             labels=np.concatenate((unlabeled_labels, prepared_datasets['labelled']['train'][1]), axis=0)
     )}
+    prepared_datasets['label_map'] = processed_unlabel['label_map']
     return prepared_datasets
 
 def get_config_default_value_if_none(experiment_config, entry, set_value=True):
@@ -442,7 +443,8 @@ if __name__ == '__main__':
                                                                                   output_tasks=transform_funcs_names,
                                                                                   optimizer=optimizer, num_features=features)
                 transform_model.summary()  # put a summary of the model
-
+                print('core model summary', '-----------------', sep='\n')
+                self_har_models.extract_core_model(transform_model).summary()
             """
                 Above will add to the core model heads for Multi task learning which allows for the model to better learn the features of the data
                 this will have one categorical HAR head and the rest will be categorical bce 
@@ -610,7 +612,8 @@ if __name__ == '__main__':
                 with open(f"features_labels.pkl", 'wb') as f:
                     pickle.dump({
                         'features': unlabelled_pred_prob,
-                        'labels': prepared_datasets['unlabelled_combined_labels']
+                        'labels': prepared_datasets['unlabelled_combined_labels'],
+                        'label_map': prepared_datasets['label_map']
                     }, f)
                 print(unlabelled_pred_prob, unlabelled_pred_prob.shape, prepared_datasets['unlabelled_combined_labels'], prepared_datasets['unlabelled_combined_labels'].shape)
                 exit(1)
