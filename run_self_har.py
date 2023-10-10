@@ -233,6 +233,9 @@ def get_config_default_value_if_none(experiment_config, entry, set_value=True):
         default_value = False
     elif entry == 'features': #number of output features from cnn
         default_value = 512
+    elif entry == 'extract_from':
+        default_value = None
+
 
     if set_value:
         experiment_config[entry] = default_value
@@ -307,6 +310,7 @@ if __name__ == '__main__':
     # me testing the wisdm
     #wisdm  = 'test_run/processed_datasets/wisdm_processed.pkl'
     # test = 'test_run/processed_datasets/motionsense_processed.pkl'
+
     print(keras.backend.backend())
     prepared_datasets['labelled'] = prepare_dataset(args.labelled_dataset_path, window_size, get_fixed_split_users, validation_split_proportion=0.1, verbose=verbose)
     #prepared_datasets['labelled'] = prepare_dataset(wisdm, window_size, get_fixed_split_users, validation_split_proportion=0.1, verbose=verbose)

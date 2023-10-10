@@ -6,7 +6,7 @@
   "experiment_configs" : [
     {
       "type": "transform_train",
-      "tag": "Transform_Train_Solo",
+      "tag": "Transform_Train_Solo_gyro",
       "previous_config_offset": 0,
       "optimizer": "adam",
       "initial_learning_rate": 0.0003,
@@ -20,7 +20,8 @@
       "optimizer": "adam",
       "initial_learning_rate": 0.0003,
       "epochs": 30,
-      "batch_size": 300
+      "batch_size": 300,
+      "save_file": "./test_run/feature_extract_wisdm_gyro"
     }
   ]
 }

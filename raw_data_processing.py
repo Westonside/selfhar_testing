@@ -134,3 +134,93 @@ def process_hhar_accelerometer_files(data_folder_path):
         user_datasets[user] = [(data,labels)]
     
     return user_datasets
+
+
+def process_hhar(data_folder_path: str, folder_name:str) -> dict:
+    har_dataset = pd.read_csv(os.path.join(data_folder_path, folder_name))
+    har_dataset.dropna(how="any", inplace=True)
+    har_dataset = har_dataset[["x", "y", "z", "gt", "User"]]
+    har_dataset.columns = ["x-axis", "y-axis", "z-axis", "activity", "user-id"]
+    har_users = har_dataset["user-id"].unique()
+
+    user_datasets = {}
+    for user in har_users:
+        user_extract = har_dataset[har_dataset["user-id"] == user]
+        data = user_extract[["x-axis", "y-axis", "z-axis"]].values
+        labels = user_extract["activity"].values
+        print(f"{user} {data.shape}")
+        user_datasets[user] = [(data, labels)]
+
+    return user_datasets
+
+
+
+def get_files_from_dir(directory) -> list:
+    files = []
+    for file in os.listdir(directory):
+        # print(file, "here we are")
+        if file.endswith(".txt"):
+            files.append(os.path.join(directory,file))
+    return files
+
+def get_labels_from_file(file_path) -> dict:
+    labels = {}
+    with open(file_path, 'r') as f:
+        lines = f.read().splitlines()[:-1]
+        # print(lines)
+        for line in lines:
+            split = line.split(" ", 1)
+            end = line[line.index('= ') + 2:]
+            labels[split[0]] = end
+            # print(labels)
+    print(labels)
+    return labels
+
+
+def process_wisdm(data_folder_path: str, labels) -> dict:
+    res = {}
+    files = get_files_from_dir(data_folder_path)
+    mapped = process_user_data(files) # now you have the data for each user
+    res['label_list'] = list(labels.values() )
+    res['label_list_full_name'] = list(labels.keys())
+    res['has_null_class'] = False
+    res['user_split'] = mapped
+
+    # print(list(labels.values()))
+    # print(res)
+    print(res['label_list'], res['label_list_full_name'])
+    return res
+
+
+def process_user_data(files: list) -> dict:
+    user_data = {}
+    short_key = []
+    for i, file in enumerate(files):
+
+        user_tup, symbol = user_activity_split(file, i == 1, False)
+        if i == 0:
+            mini_label = symbol
+
+        user_data[i + 1] = user_tup
+    return user_data
+
+
+def user_activity_split(file, should_print, apply_fft) -> tuple:
+    transform = {'A': 'wlk', 'B': 'jog', 'D': 'sit', 'E': 'std'}
+
+    opened = pd.read_csv(file, header=None, names=["user_id", "activity", "timestamp", "x", "y", "z"], sep=",")
+    opened["z"] = opened["z"].str.replace(";", "")
+
+
+    res = []
+    # get all the sensor data for an activity
+    # the issue is the different activities so you need to have all the same activities as the other classes
+    for activity in np.unique(opened["activity"]):
+        transformed_activity = transform.get(activity, activity)
+        seq = (opened[opened["activity"] == activity][["x", "y", "z"]].values.astype(np.float32))
+        lab = np.array([transformed_activity] * len(seq))
+        # print(lab)
+        res.append((seq, lab))
+        # print(sequences, labels)
+    return res, np.unique(opened["activity"])
+
