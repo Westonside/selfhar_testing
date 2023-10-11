@@ -1,7 +1,18 @@
+# Ignore all files in the 'test_run' folder except 'test_run/processed_datasets'
 /test_run/*
-!/test_run/processed_datasets/hhar
-!/test_run/processed_datasets/motionsense
-!/test_run/processed_datasets/wisdm
+!/test_run/processed_datasets/
+
+# Allow all files and subfolders in 'test_run/processed_datasets/hhar'
+#/test_run/processed_datasets/hhar/*
+#!/test_run/processed_datasets/hhar/**
+!/test_run/processed_datasets/wisdm_processed.pkl
+# Allow all files and subfolders in 'test_run/processed_datasets/motionsense'
+/test_run/processed_datasets/motionsense/*
+!/test_run/processed_datasets/motionsense/**
+
+# Allow all files and subfolders in 'test_run/processed_datasets/wisdm'
+/test_run/processed_datasets/wisdm/*
+!/test_run/processed_datasets/wisdm/**
 run/
 
 # Byte-compiled / optimized / DLL files
