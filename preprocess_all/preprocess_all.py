@@ -50,6 +50,7 @@ def process_dataset(dataset, output_dir, first_run = False, seen_goal = False):
                 user_datasets = raw_data_processing.process_wisdm(os.path.join(dataset[0],modality), labels)
                 #save the data
                 pickle.dump(user_datasets, open(os.path.join(output_dir, 'wisdm', 'gyro.pkl'), 'wb'))
+
     elif ds == 'hhar':
         for modality in os.listdir(dataset[0]):
             # if the modality does not contain a string in the device list then skip it
@@ -60,13 +61,38 @@ def process_dataset(dataset, output_dir, first_run = False, seen_goal = False):
             res = list(filter(lambda x: x in modality.lower(), strings['modality']))
             #process the input and pickle it to the correct location
             user_dataset = raw_data_processing.process_hhar(dataset[0], modality)
-
-            pickle.dump(user_dataset, open(os.path.join(output_dir, 'hhar', modality + '.pkl'), 'wb'))
+            dic = {
+                'user_split': user_dataset,
+                'label_list': ['sit', 'stand', 'walk', 'stairsup', 'stairsdown', 'bike'],
+                'label_list_full_name': ['sitting', 'standing', 'walking', 'walking upstairs', 'walking downstairs',
+                                         'biking'],
+            }
+            pickle.dump(dic, open(os.path.join(output_dir, 'hhar', modality + '.pkl'), 'wb'))
             print(res)
 
-        print('testing')
+    elif ds == 'motionsense':
+        #process the motionsense data
+        # do a for loop on each of the modalities
+        for modality in os.listdir(dataset[0]):
+            if(len(list(filter(lambda x: x in modality, strings['exclude']))) != 0):
+                continue
 
-    gc.collect()
+            print(modality)
+            test = raw_data_processing.process_motion_sense_accelerometer_files(os.path.join(dataset[0], modality))
+            dic = {
+                'user_split': test,
+                'label_list': ['sit', 'std', 'wlk', 'ups', 'dws', 'jog'],
+                'label_list_full_name': ['sitting', 'standing', 'walking', 'walking upstairs', 'walking downstairs',
+                                         'jogging'],
+                'has_null_class': False,
+                'sampling_rate': 50.0,
+            }
+            pickle.dump(dic, open(os.path.join(output_dir, 'motionsense', modality + '.pkl'), 'wb'))
+            print(test)
+
+
+
+
 
 
 def get_modalities(device_dir) -> list:
@@ -87,12 +113,17 @@ def main():
     output_dir = "../test_run/processed_datasets"
     data_dir = args.data_dir
     folders = [
-        # ('../test_run/original_datasets/wisdm/wisdm/wisdm-dataset/raw/phone', 'wisdm'),
-               ('../test_run/original_datasets/hhar/Activity recognition exp', 'hhar')]
+        ('../test_run/original_datasets/wisdm/wisdm/wisdm-dataset/raw/phone', 'wisdm'),
+               ('../test_run/original_datasets/hhar/Activity recognition exp', 'hhar'),
+        ('../test_run/original_datasets/motionsense', 'motionsense'),
+
+    ]
+    print("Preprocessing data...")
+
     for f in folders:
         process_dataset(f, output_dir, True, False)
+        gc.collect()
 
-    print("Preprocessing data...")
 
 
 

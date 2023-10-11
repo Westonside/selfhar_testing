@@ -1,4 +1,7 @@
-test_run/
+/test_run/*
+!/test_run/processed_datasets/hhar
+!/test_run/processed_datasets/motionsense
+!/test_run/processed_datasets/wisdm
 run/
 
 # Byte-compiled / optimized / DLL files
