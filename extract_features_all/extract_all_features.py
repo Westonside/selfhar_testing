@@ -1,3 +1,4 @@
+import gc
 import multiprocessing as mp
 import os
 import time
@@ -30,7 +31,7 @@ def extract_features(*args):
         print(e)
 
 def main():
-    num_modal = 2
+    num_modal = 1
     print('Extracting Features from all datasets')
     with mp.Pool(num_modal) as pool:
         # now go through each item in the file and extract the features
@@ -40,7 +41,9 @@ def main():
                modality_file = os.path.join(file, modality)
                if modality_file in mapping:
                     print(mapping[modality_file])
-                    pool.apply_async(extract_features, (modality_file, mapping[modality_file]))
+                    extract_features(modality_file, mapping[modality_file])
+                    # pool.aopp(extract_features, (modality_file, mapping[modality_file]))
+                    gc.collect()
 
         pool.close()
         pool.join() # this will wait for the processes to finish
