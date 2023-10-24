@@ -113,9 +113,9 @@ def main():
     output_dir = "../test_run/processed_datasets"
     data_dir = args.data_dir
     folders = [
-        ('../test_run/original_datasets/wisdm/wisdm/wisdm-dataset/raw/phone', 'wisdm'),
+        # ('../test_run/original_datasets/wisdm/wisdm/wisdm-dataset/raw/phone', 'wisdm'),
                ('../test_run/original_datasets/hhar/Activity recognition exp', 'hhar'),
-        ('../test_run/original_datasets/motionsense', 'motionsense'),
+        # ('../test_run/original_datasets/motionsense', 'motionsense'),
 
     ]
     print("Preprocessing data...")

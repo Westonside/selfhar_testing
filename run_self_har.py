@@ -613,7 +613,11 @@ if __name__ == '__main__':
                 unlabelled_pred_prob = teacher_model.predict(prepared_datasets['unlabelled_combined'],
                                                              batch_size=batch_size)  # teacher model will predict on the unlabelled data generating its own labels for what it thinks NOTE: this will be a probabiotiy distribution
                 # now that you have the features you can save the labels and the features
-                with open(f"features_labels.pkl", 'wb') as f:
+                #TODO ADD ADDITIONAL LOGIC TO SAVE THE FOLDER TO SPECIFIC LOCATION
+                current_time_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+                file_tag = get_config_default_value_if_none('labell')
+                save_name = f"{current_time_string}_{args.labelled_dataset_path}_{args.unlabelled_dataset_path}_features"
+                with open(save_name, 'wb') as f:
                     pickle.dump({
                         'features': unlabelled_pred_prob,
                         'labels': prepared_datasets['unlabelled_combined_labels'],
