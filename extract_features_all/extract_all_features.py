@@ -6,8 +6,8 @@ import run_self_har
 import subprocess
 files = ['test_run/processed_datasets/hhar']
 mapping = {
-    'test_run/processed_datasets/hhar/gyro': 'test_run/processed_datasets/hhar/gyro',
-    'test_run/processed_datasets/hhar/accel': 'test_run/processed_datasets/hhar/accel',
+    'test_run/processed_datasets/hhar/Phones_gyroscope.csv.pkl': 'test_run/processed_datasets/hhar/Phones_gyroscope.csv.pkl',
+    'test_run/processed_datasets/hhar/Phones_accelerometer.csv.pkl': 'test_run/processed_datasets/hhar/Phones_accelerometer.csv.pkl',
 }
 
 
@@ -25,8 +25,8 @@ def extract_features(*args):
             "--window_size", "400",
             "--max_unlabelled_windows", "40000"
         ]
-        print(' '.join(command))
-        # subprocess.run(command)
+        print(command)
+        subprocess.run(command)
     except Exception as e:
         print(e)
 
