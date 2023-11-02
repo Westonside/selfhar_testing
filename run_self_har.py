@@ -162,7 +162,7 @@ def generate_unlabelled_datasets_variations(unlabelled_data_x, labelled_data_x, 
         print("Unlabeled data shape: ", unlabelled_data_x.shape)
 
     labelled_data_repeat = np.repeat(labelled_data_x, labelled_repeat, axis=0) #for now it is safe to assume that labelled repeat is 1
-    np_unlabelled_combined = np.concatenate([unlabelled_data_x, labelled_data_repeat])
+    np_unlabelled_combined = np.concatenate([unlabelled_data_x, labelled_data_repeat]) # concat the labelled and the unlabeleld
     if verbose > 0:
         print(f"Unlabelled Combined shape: {np_unlabelled_combined.shape}")
     gc.collect()
@@ -175,14 +175,27 @@ def generate_unlabelled_datasets_variations(unlabelled_data_x, labelled_data_x, 
         res['unlabelled_combined_labels'] = labels.argmax(axis=1) # get the numerical values
     return res
 
-def load_unlabelled_dataset(prepared_datasets, unlabelled_dataset_path, window_size, labelled_repeat, max_unlabelled_windows=None, verbose=1):
+def load_unlabelled_dataset(prepared_datasets, unlabelled_dataset_path, window_size, labelled_repeat, max_unlabelled_windows=None, verbose=1, only_label=False):
     def get_empty_test_users(har_users):
         return (har_users, [])
+
+    if(only_label):
+        # this means that you only want to use the labelled dataset to be your unlabelled datdaset
+        prepared_datasets['unlabelled'] = prepared_datasets['labelled']['train'][0] # set the unlabelled dataset to be the labelled dataset
+        # prepared_datasets['unlabelled_combined'] = np.concatenate([prepared_datasets['labelled']])#combine the train val and test sets
+        tvt_combined = np.concatenate([prepared_datasets['labelled'][key][0] for key in ['train', 'val', 'test']]) # combine the train val and test sets
+        tvt_combined_labels = np.concatenate([prepared_datasets['labelled'][key][1] for key in ['train', 'val', 'test']]) # combine the train val and test sets
+        prepared_datasets['unlabelled_combined'] = tvt_combined
+        prepared_datasets['unlabelled_combined_labels'] = tvt_combined_labels.argmax(axis=1)
+        # prepared_datasets['unlabelled_combined_labels'] = prepared_datasets['labelled']['train'][1].argmax(axis=1)
+        return prepared_datasets
+
+
     # below is me being sneaky and getting the labels for the unlabelled data
-    processed_unlabel = prepare_dataset(unlabelled_dataset_path, window_size, get_empty_test_users, validation_split_proportion=0, verbose=verbose)
+    processed_unlabel = prepare_dataset(unlabelled_dataset_path, window_size, get_empty_test_users, validation_split_proportion=0, verbose=verbose) # process the inputted dataset
     #NOTE: I am manually adding the labels to the unlabeled data this is not part of the training process
-    unlabeled_labels = processed_unlabel['train'][1]
-    prepared_datasets['unlabelled'] = processed_unlabel['train'][0]
+    unlabeled_labels = processed_unlabel['train'][1] # get the lables (done by me)
+    prepared_datasets['unlabelled'] = processed_unlabel['train'][0] # get the
     if max_unlabelled_windows is not None:
         unlabeled_labels = unlabeled_labels[:max_unlabelled_windows]
         prepared_datasets['unlabelled'] = prepared_datasets['unlabelled'][:max_unlabelled_windows]
@@ -235,6 +248,8 @@ def get_config_default_value_if_none(experiment_config, entry, set_value=True):
         default_value = 512
     elif entry == 'extract_from':
         default_value = None
+    elif entry == 'all_data':
+        default_value = False
 
 
     if set_value:
@@ -403,7 +418,9 @@ if __name__ == '__main__':
                 prepared_datasets = load_unlabelled_dataset(prepared_datasets, args.unlabelled_dataset_path,
                                                             window_size, labelled_repeat,
                                                             max_unlabelled_windows=args.max_unlabelled_windows,
-                                                            verbose=verbose)  # create the unlabelled data
+                                                            verbose=verbose,
+                                                            only_label=args.labelled_dataset_path==args.unlabelled_dataset_path
+                                                            )  # create the unlabelled data
 
             if previous_config is None or get_config_default_value_if_none(previous_config, 'trained_model_path',
                                                                            set_value=False) == '':  # if there was not a previous model or there is not a stored model
@@ -463,7 +480,7 @@ if __name__ == '__main__':
                 transform_funcs_vectorized)  # this will add the unlabelled combined with the labelled with the labels removed
 
             multitask_transform_train = (multitask_transform_dataset[0],
-                                         self_har_utilities.map_multitask_y(multitask_transform_dataset[1],
+                                         self_har_utilities.map_multitask_y(multitask_transform_dataset[1], # also applies transformations
                                                                             transform_funcs_names))  # get the multitask inputs
             multitask_split = self_har_utilities.multitask_train_test_split(multitask_transform_train, test_size=0.10,
                                                                             random_seed=42)  # create the split
@@ -506,7 +523,7 @@ if __name__ == '__main__':
 
             best_transform_model_file_name, last_transform_pre_train_model_file_name = self_har_trainers.composite_train_model(
                 full_model=transform_model,
-                training_set=multitask_train,
+                training_set=multitask_train ,
                 validation_set=multitask_val,
                 working_directory=working_directory,
                 callbacks=[training_schedule_callback],  # this will train the model and save it
@@ -615,7 +632,6 @@ if __name__ == '__main__':
                 # now that you have the features you can save the labels and the features
                 #TODO ADD ADDITIONAL LOGIC TO SAVE THE FOLDER TO SPECIFIC LOCATION
                 current_time_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-                file_tag = get_config_default_value_if_none('labell')
                 save_name = f"{current_time_string}_{args.labelled_dataset_path}_{args.unlabelled_dataset_path}_features"
                 with open(save_name, 'wb') as f:
                     pickle.dump({

@@ -6,8 +6,8 @@ import run_self_har
 import subprocess
 files = ['test_run/processed_datasets/hhar']
 mapping = {
-    'test_run/processed_datasets/hhar/Phones_gyroscope.csv.pkl': 'test_run/processed_datasets/motionsense/C_Gyroscope_data.pkl',
-    'test_run/processed_datasets/hhar/Phones_accelerometer.csv.pkl': 'test_run/processed_datasets/motionsense/B_Accelerometer_data.pkl',
+    'test_run/processed_datasets/hhar/gyro': 'test_run/processed_datasets/hhar/gyro',
+    'test_run/processed_datasets/hhar/accel': 'test_run/processed_datasets/hhar/accel',
 }
 
 
@@ -19,16 +19,35 @@ def extract_features(*args):
             "python",  # Path to the Python interpreter
             "run_self_har.py",  # The name of the script you want to run
             "--working_directory", "test_run",
-            "--config", "sample_configs/transformation_discrimination.json",
+            "--config", "sample_configs/transformation_discrimination_ft_extract.json",
             "--labelled_dataset_path", args[1],
             "--unlabelled_dataset_path", args[0],
             "--window_size", "400",
             "--max_unlabelled_windows", "40000"
         ]
-        print(command)
-        subprocess.run(command)
+        print(' '.join(command))
+        # subprocess.run(command)
     except Exception as e:
         print(e)
+
+
+
+def print_command():
+
+    for key in mapping.keys():
+
+        command = [
+            "python",  # Path to the Python interpreter
+            "run_self_har.py",  # The name of the script you want to run
+            "--working_directory", "test_run",
+            "--config", "sample_configs/transformation_discrimination_ft_extract.json",
+            "--labelled_dataset_path",key,
+            "--unlabelled_dataset_path", key,
+            "--window_size", "400",
+            "--max_unlabelled_windows", "40000"
+        ]
+        print(' '.join(command))
+
 
 def main():
     num_modal = 1
@@ -53,5 +72,6 @@ def main():
 
 
 
+
 if __name__ == "__main__":
-    main()
+    print_command()
