@@ -83,7 +83,7 @@ def composite_train_model(
         tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir) # the callback for the tensor board
         local_callbacks.append(tensorboard_callback) #add the callback to the tenasorboard calback to log if tensorboard logging is allowed
 
-    local_callbacks.append(tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=30, verbose=verbose)) #add the early stopping callback
+    local_callbacks.append(tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=20, verbose=verbose)) #add the early stopping callback
     #each head gets the same input and they will each predict on one of the transformation
     training_history = full_model.fit(
         x=training_set[0],

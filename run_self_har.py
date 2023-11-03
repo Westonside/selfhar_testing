@@ -632,7 +632,7 @@ if __name__ == '__main__':
                 # now that you have the features you can save the labels and the features
                 #TODO ADD ADDITIONAL LOGIC TO SAVE THE FOLDER TO SPECIFIC LOCATION
                 current_time_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-                save_name = f"{current_time_string}_{args.labelled_dataset_path}_{args.unlabelled_dataset_path}_features"
+                save_name = f"{current_time_string}_hhar_features_gyro.pkl"
                 with open(save_name, 'wb') as f:
                     pickle.dump({
                         'features': unlabelled_pred_prob,
