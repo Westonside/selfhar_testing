@@ -187,6 +187,7 @@ def load_unlabelled_dataset(prepared_datasets, unlabelled_dataset_path, window_s
         tvt_combined_labels = np.concatenate([prepared_datasets['labelled'][key][1] for key in ['train', 'val', 'test']]) # combine the train val and test sets
         prepared_datasets['unlabelled_combined'] = tvt_combined
         prepared_datasets['unlabelled_combined_labels'] = tvt_combined_labels.argmax(axis=1)
+        prepared_datasets['label_map'] = prepared_datasets['labelled']['label_map']
         # prepared_datasets['unlabelled_combined_labels'] = prepared_datasets['labelled']['train'][1].argmax(axis=1)
         return prepared_datasets
 
