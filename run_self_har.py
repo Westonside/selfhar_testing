@@ -1,5 +1,6 @@
 import os
 import gc
+import hickle as hkl
 import pickle
 import argparse
 import datetime
@@ -175,6 +176,13 @@ def generate_unlabelled_datasets_variations(unlabelled_data_x, labelled_data_x, 
         res['unlabelled_combined_labels'] = labels.argmax(axis=1) # get the numerical values
     return res
 
+
+def load_preprocessed_dataset(prepared_datasets, dataset_path):
+    data = hkl.load(dataset_path) # load the dataset from the path
+    #TODO: follow the instructions that were used in the hart
+
+    pass
+
 def load_unlabelled_dataset(prepared_datasets, unlabelled_dataset_path, window_size, labelled_repeat, max_unlabelled_windows=None, verbose=1, only_label=False):
     def get_empty_test_users(har_users):
         return (har_users, [])
@@ -347,7 +355,7 @@ if __name__ == '__main__':
             print(config)  # json config
             print("------------")
         time.sleep(5)  # sleep at the end
-
+    already_windowed = True
     for i, experiment_config in enumerate(experiment_configs):
         if verbose > 0:  # printing that you are starting with this configuration
             print("---------------------")
@@ -416,7 +424,10 @@ if __name__ == '__main__':
                 The transform training would be where the unlabelled data would have transformations applied and the model would have to discriminate the task and the transformation 
             """
             if 'unlabelled' not in prepared_datasets:  # if there is not a unlablled dataset
-                prepared_datasets = load_unlabelled_dataset(prepared_datasets, args.unlabelled_dataset_path,
+                if already_windowed:
+                    prepared_datasets = load_preprocessed_dataset(prepared_datasets, args.unlabelled_dataset_path)
+                else:
+                    prepared_datasets = load_unlabelled_dataset(prepared_datasets, args.unlabelled_dataset_path,
                                                             window_size, labelled_repeat,
                                                             max_unlabelled_windows=args.max_unlabelled_windows,
                                                             verbose=verbose,
