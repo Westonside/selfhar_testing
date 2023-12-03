@@ -1,3 +1,5 @@
+import os
+import re
 from datetime import datetime
 
 import hickle as hkl
@@ -7,6 +9,7 @@ import self_har_models
 import self_har_trainers
 import self_har_utilities
 import transformations
+from feature_extraction.data_loading import load_datasets
 
 
 def train_data_fn(path):
@@ -26,15 +29,13 @@ transform_funcs_vectorized = [
         transformations.time_warp_transform_low_cost,
         transformations.channel_shuffle_transform_vectorized
     ]
-def extract_features(file, dest):
-    formatted_data = "path_to_features"
+def extract_features(data, data_labels, modal):
     transform_funcs_names = ['noised', 'scaled', 'rotated', 'negated', 'time_flipped', 'permuted', 'time_warped', 'channel_shuffled'] # add lables for all the transformation functions
     # use the processing used in the sensor based impl
-    training_data = train_data_fn(formatted_data)#TODO: add in the processing of the stored data like in the sensor based transformer
     initial_learning_rate = 0.003
     num_features = 1000
     optim = tf.keras.optimizers.Adam(learning_rate=initial_learning_rate)
-    multitask_transform_dataset = self_har_utilities.create_individual_transform_dataset(None, transform_funcs_vectorized) #todo add in arguments
+    multitask_transform_dataset = self_har_utilities.create_individual_transform_dataset(data, transform_funcs_vectorized) #todo add in arguments
     input_shape = (128,3)
     core = self_har_models.create_1d_conv_core_model(input_shape)
     model = self_har_models.attach_multitask_transform_head(core, output_tasks=transform_funcs_names,optimizer=optim, num_features= num_features, with_har_head=False)
@@ -62,7 +63,7 @@ def extract_features(file, dest):
 
     training_rate_scheduler_cb = tf.keras.callbacks.LearningRateScheduler(training_rate_schedule)
 
-    current_time_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S") # get the current time
+    current_time_string = datetime.now().strftime("%Y%m%d-%H%M%S") # get the current time
     tag = f"{current_time_string}_feature_extraction"
     best_transform_model_file_name, last_transform_pre_train_model_file_name = self_har_trainers.composite_train_model( #train the model
         full_model=model,
@@ -83,21 +84,33 @@ def extract_features(file, dest):
     core_model = self_har_models.extract_core_model(model)
 
 
-    unlabelled_pred_prob = core_model.predict(training_data,
+    unlabelled_pred_prob = core_model.predict(data,
                                                  batch_size=64)  # teacher model will predict on the unlabelled data generating its own labels for what it thinks NOTE: this will be a probabiotiy distribution
     # now that you have the features you can save the labels and the features
     # TODO ADD ADDITIONAL LOGIC TO SAVE THE FOLDER TO SPECIFIC LOCATION
-    current_time_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    save_name = f"{current_time_string}_hhar_features_gyro.pkl"
-    with open(save_name, 'wb') as f:
-        hkl.dump({
-            'features': unlabelled_pred_prob,
-            'labels': prepared_datasets['unlabelled_combined_labels'],
-            'label_map': prepared_datasets['label_map']
-        }, f)
+    current_time_string = datetime.now().strftime("%Y%m%d-%H%M%S")
+    save_name = f"{current_time_string}_MotionSense_features_{modal}.pkl"
+    hkl.dump({
+        "features": unlabelled_pred_prob,
+        "labels": data_labels
+    }, save_name)
+
+
+
+
+
 
 if __name__ == "__main__":
-    listed_files = ["something.hkl", "else.hkl"]
-    destinations = ["testing", "else"]
-    for file,dest in zip(listed_files, destinations):
-        extract_features(file, dest)
+    files = ["../../SensorBasedTransformerTorch/datasets/processed/MotionSense/"]
+    modals = 2
+    for file in files:
+        position = (0,3)
+        data = load_datasets('MotionSense', path='../../SensorBasedTransformerTorch/datasets/processed')
+        train_data,train_labels = data[0] # there is no need for training and test because it is just a pretext task
+        test_data,test_labels = data[1]
+        data = np.vstack((train_data, test_data))
+        labels = np.concatenate([train_labels, test_labels])
+        for modal in range(modals):
+            modal_data = data[:,:,position[0]: position[1]]
+            extract_features(modal_data,labels, 'accel' if modal == 0 else 'gyro')
+            position = position[1], position[1]+3
