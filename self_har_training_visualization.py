@@ -34,18 +34,22 @@ def plot_training_history(history, name=None):
     # save the figure
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
-    if name is not None:
-        if "epochs" in name:
-            plt.savefig(f"./plots/epochs/{name}_epochs.png")
-            with open(f"./plots/epochs/{name}_epochs.txt", "w") as f:
-                f.write(str(history.history))
-        else:
-            plt.savefig(f"./plots/features/{name}_features.png")
-            # save the history to the same folder
-            with open(f"./plots/features/{name}_features.txt", "w") as f:
-                f.write(str(history.history))
-
+    plt.savefig(f"./loss_graph_{name}")
     plt.show()
+
+
+    #if name is not None:
+    #    if "epochs" in name:
+    #        plt.savefig(f"./name}_epochs.png")
+    #        with open(f"./{name}_epochs.txt", "w") as f:
+    #            f.write(str(history.history))
+    #    else:
+    #        plt.savefig(f"./plots/features/{name}_features.png")
+    #        # save the history to the same folder
+    #        with open(f"./plots/features/{name}_features.txt", "w") as f:
+    #            f.write(str(history.history))
+
+    #plt.show()
 
 
 

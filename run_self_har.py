@@ -424,10 +424,7 @@ if __name__ == '__main__':
                 The transform training would be where the unlabelled data would have transformations applied and the model would have to discriminate the task and the transformation 
             """
             if 'unlabelled' not in prepared_datasets:  # if there is not a unlablled dataset
-                if already_windowed:
-                    prepared_datasets = load_preprocessed_dataset(prepared_datasets, args.unlabelled_dataset_path)
-                else:
-                    prepared_datasets = load_unlabelled_dataset(prepared_datasets, args.unlabelled_dataset_path,
+                prepared_datasets = load_unlabelled_dataset(prepared_datasets, args.unlabelled_dataset_path,
                                                             window_size, labelled_repeat,
                                                             max_unlabelled_windows=args.max_unlabelled_windows,
                                                             verbose=verbose,
@@ -474,7 +471,7 @@ if __name__ == '__main__':
             else:
                 transform_model = self_har_models.attach_multitask_transform_head(core_model,
                                                                                   output_tasks=transform_funcs_names,
-                                                                                  optimizer=optimizer, num_features=features)
+                                                                                  optimizer=optimizer, num_features=features, with_har_head=False)
                 transform_model.summary()  # put a summary of the model
                 print('core model summary', '-----------------', sep='\n')
                 self_har_models.extract_core_model(transform_model).summary()

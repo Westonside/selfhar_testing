@@ -53,9 +53,9 @@ def get_mode(np_array):
     """
     Get the mode (majority/most frequent value) from a 1D array
     """
-    return scipy.stats.mode(np_array)[0] # this gets the most occuring value in a 1D 400 entry label array
-    # values, counts = np.unique(np_array, return_counts=True)
-    # return values[counts.argmax()]
+    # return scipy.stats.mode(np_array)[0] # this gets the most occuring value in a 1D 400 entry label array
+    values, counts = np.unique(np_array, return_counts=True)
+    return values[counts.argmax()]
 def sliding_window_np(X, window_size, shift, stride, offset=0, flatten=None):
     """
     Create sliding windows from an ndarray
